@@ -1,0 +1,60 @@
+# HPC Application using TensorFlow (Parallel Training)
+
+import tensorflow as tf
+from tensorflow import keras
+import numpy as np
+import time
+
+# Step 1: Start time (to measure performance)
+start_time = time.time()
+
+# Step 2: Create distributed strategy (HPC concept)
+strategy = tf.distribute.MirroredStrategy()
+
+print("Number of devices used:", strategy.num_replicas_in_sync)
+
+# Step 3: Load dataset (MNIST)
+(x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
+
+# Step 4: Normalize data
+x_train = x_train / 255.0
+x_test = x_test / 255.0
+
+# Step 5: Build model inside strategy scope
+with strategy.scope():
+
+    model = keras.Sequential([
+        keras.layers.Flatten(input_shape=(28, 28)),
+        keras.layers.Dense(128, activation='relu'),
+        keras.layers.Dropout(0.2),
+        keras.layers.Dense(10, activation='softmax')
+    ])
+
+    # Compile model
+    model.compile(
+        optimizer='adam',
+        loss='sparse_categorical_crossentropy',
+        metrics=['accuracy']
+    )
+
+# Step 6: Train model (parallel execution)
+history = model.fit(
+    x_train,
+    y_train,
+    epochs=5,
+    batch_size=64,
+    validation_split=0.1
+)
+
+# Step 7: Evaluate model
+loss, accuracy = model.evaluate(x_test, y_test)
+
+# Step 8: End time
+end_time = time.time()
+
+# Step 9: Print results
+print("\nTest Accuracy:", accuracy)
+
+print("Total Training Time:",
+      round(end_time - start_time, 2),
+      "seconds")
