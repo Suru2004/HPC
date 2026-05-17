@@ -1,0 +1,81 @@
+#include <iostream>
+#include <cuda_runtime.h>
+
+using namespace std;
+
+// CUDA Kernel Function
+__global__ void addVectors(int *A, int *B, int *C, int n)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (i < n)
+    {
+        C[i] = A[i] + B[i];
+    }
+}
+
+int main()
+{
+    int n = 1000000;
+    int size = n * sizeof(int);
+
+    int *A, *B, *C;
+    int *dev_A, *dev_B, *dev_C;
+
+    // Allocate memory on Host
+    cudaMallocHost((void**)&A, size);
+    cudaMallocHost((void**)&B, size);
+    cudaMallocHost((void**)&C, size);
+
+    // Initialize vectors
+    for (int i = 0; i < n; i++)
+    {
+        A[i] = i;
+        B[i] = i * 2;
+    }
+
+    // Allocate memory on Device
+    cudaMalloc((void**)&dev_A, size);
+    cudaMalloc((void**)&dev_B, size);
+    cudaMalloc((void**)&dev_C, size);
+
+    // Copy data from Host to Device
+    cudaMemcpy(dev_A, A, size, cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_B, B, size, cudaMemcpyHostToDevice);
+
+    // Kernel Launch Configuration
+    int blockSize = 256;
+    int numBlocks = (n + blockSize - 1) / blockSize;
+
+    // Launch Kernel
+    addVectors<<<numBlocks, blockSize>>>(dev_A, dev_B, dev_C, n);
+
+    // Copy Result from Device to Host
+    cudaMemcpy(C, dev_C, size, cudaMemcpyDeviceToHost);
+
+    // Print first 10 results
+    cout << "Result Vector:\n";
+
+    for (int i = 0; i < 10; i++)
+    {
+        cout << C[i] << " ";
+    }
+
+    cout << endl;
+
+    // Free Device Memory
+    cudaFree(dev_A);
+    cudaFree(dev_B);
+    cudaFree(dev_C);
+
+    // Free Host Memory
+    cudaFreeHost(A);
+    cudaFreeHost(B);
+    cudaFreeHost(C);
+
+    return 0;
+}
+
+sample output
+Result Vector:
+0 3 6 9 12 15 18 21 24 27
