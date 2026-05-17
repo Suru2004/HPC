@@ -1,0 +1,124 @@
+#include <cuda_runtime.h>
+#include <iostream>
+
+using namespace std;
+
+// CUDA Kernel for Matrix Multiplication
+__global__ void matmul(int *A, int *B, int *C, int N)
+{
+    int Row = blockIdx.y * blockDim.y + threadIdx.y;
+    int Col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (Row < N && Col < N)
+    {
+        int Pvalue = 0;
+
+        for (int k = 0; k < N; k++)
+        {
+            Pvalue += A[Row * N + k] * B[k * N + Col];
+        }
+
+        C[Row * N + Col] = Pvalue;
+    }
+}
+
+int main()
+{
+    int N = 4; // Matrix size
+    int size = N * N * sizeof(int);
+
+    int *A, *B, *C;
+    int *dev_A, *dev_B, *dev_C;
+
+    // Allocate Host Memory
+    cudaMallocHost((void**)&A, size);
+    cudaMallocHost((void**)&B, size);
+    cudaMallocHost((void**)&C, size);
+
+    // Allocate Device Memory
+    cudaMalloc((void**)&dev_A, size);
+    cudaMalloc((void**)&dev_B, size);
+    cudaMalloc((void**)&dev_C, size);
+
+    // Initialize matrices A and B
+    cout << "Matrix A:\n";
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            A[i * N + j] = i + j;
+            cout << A[i * N + j] << " ";
+        }
+        cout << endl;
+    }
+
+    cout << "\nMatrix B:\n";
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            B[i * N + j] = i * j;
+            cout << B[i * N + j] << " ";
+        }
+        cout << endl;
+    }
+
+    // Copy matrices from Host to Device
+    cudaMemcpy(dev_A, A, size, cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_B, B, size, cudaMemcpyHostToDevice);
+
+    // Define block and grid dimensions
+    dim3 dimBlock(16, 16);
+    dim3 dimGrid((N + dimBlock.x - 1) / dimBlock.x,
+                 (N + dimBlock.y - 1) / dimBlock.y);
+
+    // Launch CUDA Kernel
+    matmul<<<dimGrid, dimBlock>>>(dev_A, dev_B, dev_C, N);
+
+    // Copy result back to Host
+    cudaMemcpy(C, dev_C, size, cudaMemcpyDeviceToHost);
+
+    // Print Result Matrix
+    cout << "\nResult Matrix C:\n";
+
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            cout << C[i * N + j] << " ";
+        }
+        cout << endl;
+    }
+
+    // Free Device Memory
+    cudaFree(dev_A);
+    cudaFree(dev_B);
+    cudaFree(dev_C);
+
+    // Free Host Memory
+    cudaFreeHost(A);
+    cudaFreeHost(B);
+    cudaFreeHost(C);
+
+    return 0;
+}
+
+
+sample output
+Matrix A:
+0 1 2 3
+1 2 3 4
+2 3 4 5
+3 4 5 6
+
+Matrix B:
+0 0 0 0
+0 1 2 3
+0 2 4 6
+0 3 6 9
+
+Result Matrix C:
+0 14 28 42
+0 20 40 60
+0 26 52 78
+0 32 64 96
